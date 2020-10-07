@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+
+<body>
+    <video id="videoInput" autoplay></video>
+    <video id="videoOutput" autoplay></video>
+    <input id="send" type="submit" style="position: absolute; top: 0; left: 0">
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="./kurento-utils/js/kurento-utils.min.js"></script>
+    <script>
+        const socket = io("http://localhost:9090")
+        const sendElement = document.getElementById("send")
+        sendElement.onclick = send
+
+        class Participant {
+            constructor(roomId, userId) {
+                this.roomId = roomId
+                this.userId = userId
+                this.webRtcPeer
+                this.candidates = []
+                this.event()
+            }
+
+            event = () => {
+                socket.on("processAnswer", message => {
+                    const endpoint = message.endpoint
+                    const sdpAnswer = message.sdpAnswer
+                    this.candidates.forEach(candidate => {
+                        socket.emit("addIceCandidate", {
+                            roomId: this.roomId,
+                            endpoint: endpoint,
+                            candidate: candidate
+                        })
+                    })
+                    this.candidates = []
+                    this.webRtcPeer.showLocalVideo()
+                    this.webRtcPeer.processAnswer(message.sdpAnswer, (error) => {
+                        if (error) return console.error("processAnswer", error)
+                        sendElement.onclick = send
+                    })
+                    socket.emit("getMedia", {
+                        roomId: this.roomId,
+                        endpoint: endpoint
+                    })
+                })
+
+                socket.on("addIceCandidate", message => {
+                    this.webRtcPeer.addIceCandidate(message.candidate)
+                })
+            }
+            processOffer = () => {
+                var videoInput = document.getElementById('videoInput');
+                var videoOutput = document.getElementById('videoOutput');
+
+                var constraints = {
+                    video: {
+                        width: 640,
+                        framerate: 15
+                    }
+                };
+
+                var options = {
+                    localVideo: videoInput,
+                    remoteVideo: videoOutput,
+                    onicecandidate: (candidate) => {
+                        this.candidates.push(candidate)
+                    },
+                    mediaConstraints: constraints
+                };
+
+                const roomId = this.roomId
+                const userId = this.userId
+
+                this.webRtcPeer = kurentoUtils.WebRtcPeer.WebRtcPeerSendrecv(options, function (error) {
+                    if (error) return onError(error);
+                    this.generateOffer((error, sdp) => {
+                        if (error) return console.error(error)
+                        socket.emit("processOffer", {
+                            roomId: roomId,
+                            userId: userId,
+                            sdp: sdp
+                        })
+                    })
+                })
+            }
+        }
+
+        function send(event) {
+            const element = event.target
+            element.onclick = null
+            const roomId = 123
+            const userId = 1
+            const participant = new Participant(roomId, userId)
+            participant.processOffer()
+        }
+    </script>
+</body>
+
+</html>
