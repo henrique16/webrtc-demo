@@ -9,7 +9,7 @@ export interface Callback {
 }
 
 export interface RequestHandler {
-    processOffer: (roomId: number, userId: number, sdp: string) => Promise<Media>
-    getMedia: (roomId: number, endpoint: Endpoint, callback: Callback) => Promise<void>
+    sendMedia: (roomId: number, userId: number, sdp: string, callback: Callback) => Promise<Media>
+    getMedia: (roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback) => Promise<Media>
     addCandidate: (roomId: number, endpoint: Endpoint, candidate: string) => void
 }

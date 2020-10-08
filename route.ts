@@ -14,7 +14,7 @@ export class Route {
     private exec() {
         
         this.route.get("/", (req, res, next) => {
-            res.status(200).sendFile(`${__dirname}/client/index.html`)
+            res.status(200).sendFile(`index.html`)
         })
     }
 }

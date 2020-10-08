@@ -18,7 +18,7 @@ export class WsRequestHandler implements RequestHandler {
         this.ws = null
     }
 
-    public async processOffer(roomId: number, userId: number, sdp: string): Promise<Media> {
+    public async sendMedia(roomId: number, userId: number, sdp: string, callback: Callback): Promise<Media> {
         try {
             const pipeline = await this.createMediaPipeline(roomId, userId)
             var data = await this.createEndpoint(pipeline)
@@ -31,6 +31,8 @@ export class WsRequestHandler implements RequestHandler {
                 sdpAnswer: sdpAnswer
             }
             await this.roomsController.setMedia(roomId, media)
+            await this.subscribe("OnIceCandidate", endpointId, pipeline)
+            this.gatherCandidatesThis(endpointId, pipeline, callback)
             return Promise.resolve(media)
         }
         catch (error) {
@@ -38,19 +40,26 @@ export class WsRequestHandler implements RequestHandler {
         }
     }
 
-    public getMedia(roomId: number, endpoint: Endpoint, callback: Callback): Promise<void> {
-        return new Promise(async (resolve, reject) => {
-            try {
-                const pipeline = await this.roomsController.getInController(roomId)
-                const media = await this.roomsController.getMedia(roomId, endpoint)
-                await this.subscribe("OnIceCandidate", media.endpoint.id, pipeline)
-                await this.gatherCandidatesThis(media.endpoint.id, pipeline, callback)
-                return resolve()
+    public async getMedia(roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback): Promise<Media> {
+        try {
+            const pipeline = await this.roomsController.getInController(roomId)
+            var data = await this.createEndpoint(pipeline)
+            const endpointId = data.message.result.value
+            data = await this.connectEndpointSender(endpointId, endpointSender.id, pipeline)
+            data = await this.processOfferEndpoint(endpointId, sdp, pipeline)
+            const sdpAnswer = data.message.result.value
+            const media: Media = {
+                endpoint: { id: endpointId },
+                sdpAnswer: sdpAnswer
             }
-            catch (error) {
-                return reject(error)
-            }
-        })
+            await this.roomsController.setMedia(roomId, media)
+            await this.subscribe("OnIceCandidate", endpointId, pipeline)
+            this.gatherCandidatesThis(endpointId, pipeline, callback)
+            return Promise.resolve(media)
+        }
+        catch (error) {
+            return Promise.reject(error)
+        }
     }
 
     public addCandidate(roomId: number, endpoint: Endpoint, candidate: string): void {
@@ -190,6 +199,36 @@ export class WsRequestHandler implements RequestHandler {
         })
     }
 
+    private connectEndpointSender(endpointId: string, endpointSenderId: string, pipeline: Pipeline): Promise<Data> {
+        return new Promise((resolve, reject) => {
+            const id = shortid.generate()
+            const msg = {
+                "id": id,
+                "method": "invoke",
+                "params": {
+                    "object": endpointSenderId,
+                    "operation": "connect",
+                    "operationParams": {
+                        "sink": endpointId
+                    },
+                    "sessionId": pipeline.sessionId
+                },
+                "jsonrpc": "2.0"
+            }
+            this.setInController(id, (data: Data, error?: any) => {
+                this.deleteInController(id)
+                if (error) return reject(error)
+                return resolve(data)
+            })
+            this.ws?.send(JSON.stringify(msg), (error) => {
+                if (error) {
+                    this.deleteInController(id)
+                    return reject(error)
+                }
+            })
+        })
+    }
+
     private processOfferEndpoint(endpointId: string, sdp: string, pipeline: Pipeline): Promise<Data> {
         return new Promise((resolve, reject) => {
             const id = shortid.generate()
@@ -247,58 +286,30 @@ export class WsRequestHandler implements RequestHandler {
         })
     }
 
-    private gatherCandidatesThis(endpointId: string, pipeline: Pipeline, callback: Callback): Promise<void> {
-        return new Promise((resolve, reject) => {
-            const id = shortid.generate()
-            const msg = {
-                "id": id,
-                "method": "invoke",
-                "params": {
-                    "object": endpointId,
-                    "operation": "gatherCandidates",
-                    "sessionId": pipeline.sessionId
-                },
-                "jsonrpc": "2.0"
-            }
-            this.setInController(endpointId, callback)
-            this.setInController(id, (data: Data, error?: any) => {
+    private gatherCandidatesThis(endpointId: string, pipeline: Pipeline, callback: Callback): void {
+        const id = shortid.generate()
+        const msg = {
+            "id": id,
+            "method": "invoke",
+            "params": {
+                "object": endpointId,
+                "operation": "gatherCandidates",
+                "sessionId": pipeline.sessionId
+            },
+            "jsonrpc": "2.0"
+        }
+        this.setInController(endpointId, callback)
+        this.setInController(id, (data: Data, error?: any) => {
+            this.deleteInController(id)
+            this.deleteInController(endpointId)
+            if (error) console.error(error)
+        })
+        this.ws?.send(JSON.stringify(msg), (error) => {
+            if (error) {
                 this.deleteInController(id)
                 this.deleteInController(endpointId)
-                if (error) return reject(error)
-                return resolve()
-            })
-            this.ws?.send(JSON.stringify(msg), (error) => {
-                if (error) {
-                    this.deleteInController(id)
-                    this.deleteInController(endpointId)
-                    return reject(error)
-                }
-            })
-        })
-    }
-
-    private ping() {
-        return new Promise((resolve, reject) => {
-            const id = shortid.generate()
-            const msg = {
-                "id": id,
-                "method": "ping",
-                "params": {
-                    "interval": 240000
-                },
-                "jsonrpc": "2.0"
+                console.error(error)
             }
-            this.setInController(id, (data: Data, error?: any) => {
-                this.deleteInController(id)
-                if (error) return reject(error)
-                return resolve(data)
-            })
-            this.ws?.send(JSON.stringify(msg), (error) => {
-                if (error) {
-                    this.deleteInController(id)
-                    return reject(error)
-                }
-            })
         })
     }
 
@@ -348,7 +359,6 @@ export class WsRequestHandler implements RequestHandler {
         this.ws?.on("message", (data: Ws.Data) => {
             const message: any = JSON.parse(data.toString())
             const id: string = message.id
-            // console.log(message)
             if (message.hasOwnProperty("error")) {
                 this.getInController(id)
                     .then(callback => {

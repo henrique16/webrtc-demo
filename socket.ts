@@ -2,9 +2,10 @@ import socketio from "socket.io"
 import { WsRequestHandler } from "./core/adpater/kurento/wsRequestHandler"
 import { AddCandidate } from "./core/use-case/addCandidate"
 import { GetMedia } from "./core/use-case/getMedia"
+import { GetMedias } from "./core/use-case/getMedias"
 import { Endpoint } from "./core/use-case/interface/media"
 import { Callback, RequestHandler } from "./core/use-case/interface/requestHandler"
-import { ProcessOffer } from "./core/use-case/processOffer"
+import { SendMedia } from "./core/use-case/sendMedia"
 import { RoomsController } from "./core/use-case/roomsController"
 
 const roomController: RoomsController = new RoomsController()
@@ -20,30 +21,55 @@ export class Socket {
 
     private exec() {
         this.io.on("connection", (socket) => {
+            console.log("connect")
 
-            socket.on("processOffer", message => {
+            socket.on("sendMedia", message => {
                 const roomId: number = message.roomId
                 const userId: number = message.userId
                 const sdp: string = message.sdp
-                const processOffer = new ProcessOffer(requestHandler, roomId, userId, sdp)
-                processOffer.exec()
-                    .then(media => socket.emit("processAnswer", {
-                        endpoint: media.endpoint,
-                        sdpAnswer: media.sdpAnswer
-                    }))
+                const callback: Callback = (data, error) => {
+                    if (error) return console.error(error)
+                    socket.emit("addIceCandidate", { candidate: data.message.candidate })
+                }
+                const sendMedia = new SendMedia(requestHandler, roomId, userId, sdp, callback)
+                sendMedia.exec()
+                    .then(media => {
+                        socket.emit("sendMedia-ok", {
+                            endpoint: media.endpoint,
+                            sdpAnswer: media.sdpAnswer
+                        })
+                        socket.broadcast.emit("newMedia", {
+                            endpoint: media.endpoint,
+                            sdpAnswer: media.sdpAnswer
+                        })
+                    })
                     .catch(error => console.error(error))
             })
 
             socket.on("getMedia", message => {
                 const roomId: number = message.roomId
-                const endpoint: Endpoint = message.endpoint
+                const endpointSender: Endpoint = message.endpointSender
+                const sdp: string = message.sdp
                 const callback: Callback = (data, error) => {
                     if (error) return console.error(error)
                     socket.emit("addIceCandidate", { candidate: data.message.candidate })
                 }
-                const getMedia = new GetMedia(requestHandler, roomId, endpoint, callback)
+                const getMedia = new GetMedia(requestHandler, roomId, endpointSender, sdp, callback)
                 getMedia.exec()
-                    .then(() => {})
+                    .then(media => {
+                        socket.emit("getMedia-ok", {
+                            endpoint: media.endpoint,
+                            sdpAnswer: media.sdpAnswer
+                        })
+                    })
+                    .catch(error => console.error(error))
+            })
+
+            socket.on("getMedias", message => {
+                const roomId: number = message.roomId
+                const getMedias = new GetMedias(roomController, roomId)
+                getMedias.exec()
+                    .then(medias => socket.emit("recvMedias", { medias: medias }))
                     .catch(error => console.error(error))
             })
 
@@ -53,6 +79,10 @@ export class Socket {
                 const candidate: string = message.candidate
                 const addCandidate = new AddCandidate(requestHandler, roomId, endpoint, candidate)
                 addCandidate.exec()
+            })
+
+            socket.on('disconnect', () => {
+                console.log("disconnect")
             })
         })
     }
