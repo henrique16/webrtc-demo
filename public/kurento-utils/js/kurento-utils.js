@@ -4398,12 +4398,3 @@ WildEmitter.mixin(WildEmitter);
 
 },{}]},{},[2])(2)
 });
-
-// const peer = new WebRtcPeer("send", {}, (error) => {
-// })
-
-// peer.addIceCandidate("", (error) => {})
-
-// peer.processAnswer()
-
-WebRtcPeer.WebRtcPeerSendonly({}, (error) => {})
