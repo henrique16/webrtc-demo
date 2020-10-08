@@ -1,5 +1,5 @@
 import { Room } from "../../domain/room"
-import { Media } from "./media"
+import { Endpoint, Media } from "./media"
 
 export interface Pipeline {
     room: Room

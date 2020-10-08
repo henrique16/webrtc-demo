@@ -8,14 +8,17 @@
 </head>
 
 <body>
-    <video id="video" autoplay></video>
-    <input id="send" type="submit" style="position: absolute; top: 0; left: 0;">
+    <video id="localVideo" playsinline autoplay style="width: 350px; height: 200px;"></video>
+    <video id="remoteVideo" playsinline autoplay style="width: 350px; height: 200px;"></video>
+    <input id="send" type="submit" value="send" style="position: absolute; top: 0; left: 0;">
     <script src="/socket.io/socket.io.js"></script>
-    <script src="./kurento-utils/js/kurento-utils.js"></script>
+    <script src="./kurento-utils/js/kurento-utils.min.js"></script>
     <script>
         const socket = io("http://localhost:9090")
         const sendElement = document.getElementById("send")
-        const videoElement = document.getElementById("video")
+        const localVideo = document.getElementById("localVideo")
+        const remoteVideo = document.getElementById("remoteVideo")
+        var participant
         sendElement.onclick = send
 
         window.addEventListener("load", (event) => {
@@ -26,7 +29,8 @@
             constructor(roomId, userId) {
                 this.roomId = roomId
                 this.userId = userId
-                this.webRtcPeer
+                this.webRtcPeerSend
+                this.webRtcPeerGet
                 this.sendCandidates = []
                 this.recvCandidates = []
                 this.event()
@@ -44,10 +48,14 @@
                         })
                     })
                     this.sendCandidates = []
-                    this.webRtcPeer.processAnswer(sdpAnswer, (error) => {
-                        sendElement.onclick = send
-                        if (error) return console.error(error)
-                        this.webRtcPeer.showLocalVideo()
+                    this.webRtcPeerSend.processAnswer(sdpAnswer, (error) => {
+                        if (error) {
+                            sendElement.onclick = send
+                            return console.error(error)
+                        }
+                        this.webRtcPeerSend.showLocalVideo()
+                        sendElement.value = "close"
+                        sendElement.onclick = (event) => dispose(event, endpoint)
                     })
                 })
 
@@ -62,19 +70,29 @@
                         })
                     })
                     this.recvCandidates = []
-                    this.webRtcPeer.processAnswer(sdpAnswer, (error) => {
+                    this.webRtcPeerGet.processAnswer(sdpAnswer, (error) => {
                         if (error) return console.error(error)
                     })
                 })
 
+                socket.on("closeMedia-ok", () => {
+                    sendElement.value = "send"
+                    sendElement.onclick = send
+                })
+
                 socket.on("addIceCandidate", message => {
-                    this.webRtcPeer.addIceCandidate(message.candidate)
+                    this.webRtcPeerSend && this.webRtcPeerSend.addIceCandidate(message.candidate)
+                    this.webRtcPeerGet && this.webRtcPeerGet.addIceCandidate(message.candidate)
                 })
 
                 socket.on("newMedia", message => {
                     const sdpAnswer = message.sdpAnswer
                     const endpoint = message.endpoint
                     this.getMedia(endpoint)
+                })
+
+                socket.on("disposeMedia", () => {
+                    this.webRtcPeerGet.dispose()
                 })
             }
 
@@ -83,18 +101,19 @@
                 const userId = this.userId
                 const constraints = {
                     video: {
-                        width: 640,
+                        width: 350,
+                        height: 200,
                         framerate: 15
                     }
                 }
                 const options = {
-                    localVideo: videoElement,
+                    localVideo: localVideo,
                     onicecandidate: (candidate) => {
                         this.sendCandidates.push(candidate)
                     },
                     mediaConstraints: constraints
                 }
-                this.webRtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
+                this.webRtcPeerSend = new kurentoUtils.WebRtcPeer.WebRtcPeerSendonly(options, function (error) {
                     if (error) return console.error(error)
                     this.generateOffer((error, sdp) => {
                         if (error) return console.error(error)
@@ -112,18 +131,19 @@
                 const userId = this.userId
                 const constraints = {
                     video: {
-                        width: 640,
+                        width: 350,
+                        height: 200,
                         framerate: 15
                     }
                 }
                 const options = {
-                    remoteVideo: videoElement,
+                    remoteVideo: remoteVideo,
                     onicecandidate: (candidate) => {
                         this.sendCandidates.push(candidate)
                     },
                     mediaConstraints: constraints
                 }
-                this.webRtcPeer = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function (error) {
+                this.webRtcPeerGet = new kurentoUtils.WebRtcPeer.WebRtcPeerRecvonly(options, function (error) {
                     if (error) return console.error(error)
                     this.generateOffer((error, sdp) => {
                         if (error) return console.error(error)
@@ -140,9 +160,17 @@
         function send(event) {
             const element = event.target
             element.onclick = null
-            const roomId = 123
-            const userId = 1
             participant.sendMedia()
+        }
+
+        function dispose(event, endpoint) {
+            const element = event.target
+            element.onclick = null
+            participant.webRtcPeerSend.dispose()
+            socket.emit("closeMedia", {
+                roomId: participant.roomId,
+                endpoint: endpoint
+            })
         }
     </script>
 </body>

@@ -1,3 +1,5 @@
+import { pipeline } from "stream"
+import { EditorOptions } from "typescript"
 import { Endpoint, Media } from "./interface/media"
 import { Pipeline } from "./interface/pipeline"
 
@@ -8,17 +10,17 @@ export class RoomsController {
         this.controller = new Map<number, Pipeline>()
     }
 
-    public setInController(pipeline: Pipeline): void {
+    public set(pipeline: Pipeline): void {
         this.controller.set(pipeline.room.roomId, pipeline)
     }
 
-    public getInController(roomId: number): Promise<Pipeline> {
+    public get(roomId: number): Promise<Pipeline> {
         const pipeline = this.controller.get(roomId)
         if (!pipeline) return Promise.reject("there isn't roomId")
         return Promise.resolve(pipeline)
     }
 
-    public deleteInController(roomId: number): Promise<void> {
+    public del(roomId: number): Promise<void> {
         const del: boolean = this.controller.delete(roomId)
         if (!del) return Promise.reject("there isn't roomId")
         return Promise.resolve()
@@ -26,7 +28,7 @@ export class RoomsController {
 
     public setMedia(roomId: number, media: Media): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.getInController(roomId)
+            this.get(roomId)
                 .then(pipeline => {
                     pipeline.medias.push(media)
                     return resolve()
@@ -37,7 +39,7 @@ export class RoomsController {
 
     public getMedias(roomId: number): Promise<Media[]> {
         return new Promise((resolve, reject) => {
-            this.getInController(roomId)
+            this.get(roomId)
                 .then(pipeline => {
                     return resolve(pipeline.medias)
                 })
@@ -47,7 +49,7 @@ export class RoomsController {
 
     public getMedia(roomId: number, endpoint: Endpoint): Promise<Media> {
         return new Promise((resolve, reject) => {
-            this.getInController(roomId)
+            this.get(roomId)
                 .then(pipeline => {
                     const media = pipeline.medias.find(x => x.endpoint.id === endpoint.id)
                     if (!media) return reject(`there isn't media ${endpoint.id}`)
@@ -59,7 +61,7 @@ export class RoomsController {
 
     public deleteMedia(roomId: number, endpoint: Endpoint): Promise<void> {
         return new Promise((resolve, reject) => {
-            this.getInController(roomId)
+            this.get(roomId)
                 .then(pipeline => {
                     const index = pipeline.medias.findIndex(x => x.endpoint.id === endpoint.id)
                     if (index === -1) return reject("there isn't this media")
@@ -68,6 +70,16 @@ export class RoomsController {
                 })
                 .catch(error => reject(error))
 
+        })
+    }
+
+    public initialState(): void {
+        this.controller = new Map<number, Pipeline>()
+    }
+
+    public initialStateMedia(): void {
+        this.controller.forEach(pipeline => {
+            pipeline.medias = []
         })
     }
 }

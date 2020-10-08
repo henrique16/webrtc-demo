@@ -1,86 +1,44 @@
-// import { RequestHandler, Data } from "../../use-case/interface/requestHandler"
-// import { RepositoryHandler } from "../../interface/repositoryHandler"
+// import { RequestHandler, Data, Callback } from "../../use-case/interface/requestHandler"
 // import config from "../../config/index"
 // import Ws from "ws"
 // import shortid from "shortid"
-
-// interface Callback {
-//     (data: Data, error?: any): void
-// }
+// import { Media, Endpoint } from "../../use-case/interface/media"
+// import { RoomsController } from "../../use-case/roomsController"
+// import { Pipeline } from "../../use-case/interface/pipeline"
 
 // export class WsRequestHandler implements RequestHandler {
-//     private repositoryHandler: RepositoryHandler
+//     private roomController: RoomsController
 //     private controller: Map<string, Callback>
 //     private ws: Ws | null
 
-//     public constructor(repositoryHandler: RepositoryHandler) {
-//         this.repositoryHandler = repositoryHandler
+//     public constructor(roomController: RoomsController) {
+//         this.roomController = roomController
 //         this.controller = new Map<string, Callback>()
 //         this.ws = null
 //     }
 
-//     public createRoom(roomId: number): Promise<Data> {
-//         return new Promise((resolve, reject) => {
-//             this.repositoryHandler.getRoom(roomId)
-//                 .then(room => {
-//                     return resolve({
-//                         message: {
-//                             session_id: room.sessionId,
-//                             // sender: room.sender
-//                         },
-//                         roomId: room.roomId
-//                     })
-//                 })
-//                 .catch(async () => {
-//                     this.createRoomThis(roomId)
-//                         .then(data => resolve(data))
-//                         .catch(error => reject(error))
-//                 })
+//     public async sendMedia(roomId: number, userId: number, sdp: string, callback: Callback): Promise<Media> {
+//         try {
+
+//         }
+//         catch (error) {
+
+//         }
+//     }
+
+//     public getMedia(roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback): Promise<Media> {
+//         return Promise.resolve({
+//             endpoint: { id: "1" },
+//             sdpAnswer: "sdp"
 //         })
 //     }
 
-//     private createRoomThis(roomId: number): Promise<Data> {
-//         return new Promise(async (resolve, reject) => {
-//             try {
-//                 await this.connect()
-//                 var data = await this.create()
-//                 data = await this.attach(data)
-//                 data.roomId = roomId
-//                 data = await this.room(data)
-//                 data.roomId = roomId
-//                 // await this.repositoryHandler.setRoom({
-//                 //     roomId: roomId,
-//                 //     sessionId: data.message.session_id,
-//                 //     endpoints: Room
-//                 // })
-//                 return resolve(data)
-//             }
-//             catch (error) {
-//                 return reject(error)
-//             }
-//         })
+//     public addCandidate(roomId: number, endpoint: Endpoint, candidate: string): void {
+
 //     }
 
-//     public sendMedia(data: Data): Promise<Data> {
-//         return Promise.resolve({ message: "" })
-
-//         // this.attach(data, (dataAttach: Data, error?: any) => {
-//         //     if (error) return responseHandler.error()
-//         //     dataAttach.candidate = data.candidate
-//         //     dataAttach.roomId = data.roomId
-//         //     this.trickle(dataAttach)
-//         //     this.joinPublisher(dataAttach, (dataJoin: Data, error?: any) => {
-//         //         if (error) return responseHandler.error()
-//         //         dataJoin.sdp = data.sdp
-//         //         dataJoin.type = data.type
-//         //         this.publish(dataJoin, (dataPublish: Data, error?: any) => {
-//         //             if (error) return responseHandler.error()
-//         //             const sender: string = dataPublish.message.sender.toString()
-//         //             this.setInEndpoints(sender, dataPublish)
-//         //             responseHandler.success()
-//         //         })
-//         //     })
-//         // })
+//     public closeMedia(roomId: number, endpoint: Endpoint): Promise<void> {
+//         return Promise.resolve()
 //     }
 
 //     private connect(): Promise<void> {
@@ -155,6 +113,25 @@
 //         })
 //         this.ws?.on("close", (code, reason) => {
 //             this.ws = null
+//         })
+//     }
+
+//     private createPipeline() {
+//         return new Promise(async (resolve, reject) => {
+//             try {
+//                 await this.connect()
+//                 const data = await this.create()
+//                 const pipeline: Pipeline = {
+//                     room: { roomId: roomId, userId: userId },
+//                     id: data.message.data.id,
+//                     sessionId: data.message.data.id,
+//                     medias: [],
+//                     connectedMedia: new Map<string, Endpoint[]>()
+//                 }
+//             }
+//             catch (error) {
+//                 return reject(error)
+//             }
 //         })
 //     }
 

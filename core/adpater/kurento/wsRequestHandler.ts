@@ -30,8 +30,8 @@ export class WsRequestHandler implements RequestHandler {
                 endpoint: { id: endpointId },
                 sdpAnswer: sdpAnswer
             }
-            await this.roomsController.setMedia(roomId, media)
             await this.subscribe("OnIceCandidate", endpointId, pipeline)
+            await this.roomsController.setMedia(roomId, media)
             this.gatherCandidatesThis(endpointId, pipeline, callback)
             return Promise.resolve(media)
         }
@@ -42,7 +42,7 @@ export class WsRequestHandler implements RequestHandler {
 
     public async getMedia(roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback): Promise<Media> {
         try {
-            const pipeline = await this.roomsController.getInController(roomId)
+            const pipeline = await this.roomsController.get(roomId)
             var data = await this.createEndpoint(pipeline)
             const endpointId = data.message.result.value
             data = await this.connectEndpointSender(endpointId, endpointSender.id, pipeline)
@@ -52,7 +52,6 @@ export class WsRequestHandler implements RequestHandler {
                 endpoint: { id: endpointId },
                 sdpAnswer: sdpAnswer
             }
-            await this.roomsController.setMedia(roomId, media)
             await this.subscribe("OnIceCandidate", endpointId, pipeline)
             this.gatherCandidatesThis(endpointId, pipeline, callback)
             return Promise.resolve(media)
@@ -64,7 +63,7 @@ export class WsRequestHandler implements RequestHandler {
 
     public addCandidate(roomId: number, endpoint: Endpoint, candidate: string): void {
         const iceCandidate = kurento.getComplexType("IceCandidate")(candidate)
-        this.roomsController.getInController(roomId)
+        this.roomsController.get(roomId)
             .then(pipeline => {
                 const id = shortid.generate()
                 const msg = {
@@ -87,11 +86,23 @@ export class WsRequestHandler implements RequestHandler {
             .catch(error => console.error(error))
     }
 
+    public async closeMedia(roomId: number, endpoint: Endpoint): Promise<void> {
+        try {
+            const pipeline = await this.roomsController.get(roomId)
+            await this.closeMediaThis(endpoint, pipeline)
+            await this.roomsController.deleteMedia(roomId, endpoint)
+            return Promise.resolve()
+        }
+        catch (error) {
+            return Promise.reject(error)
+        }
+    }
+
     private async createMediaPipeline(roomId: number, userId: number): Promise<Pipeline> {
         return new Promise((resolve, reject) => {
             this.connect()
                 .then(() => {
-                    this.roomsController.getInController(roomId)
+                    this.roomsController.get(roomId)
                         .then(pipeline => resolve(pipeline))
                         .catch(() => {
                             this.createMediaPipelineKurento()
@@ -102,7 +113,7 @@ export class WsRequestHandler implements RequestHandler {
                                         sessionId: data.message.result.sessionId,
                                         medias: []
                                     }
-                                    this.roomsController.setInController(pipeline)
+                                    this.roomsController.set(pipeline)
                                     return resolve(pipeline)
                                 })
                                 .catch(error => reject(error))
@@ -125,7 +136,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -155,7 +166,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -185,7 +196,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -215,7 +226,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -245,7 +256,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -272,7 +283,7 @@ export class WsRequestHandler implements RequestHandler {
                 },
                 "jsonrpc": "2.0"
             }
-            this.setInController(id, (data: Data, error?: any) => {
+            this.setInController(id, (data, error) => {
                 this.deleteInController(id)
                 if (error) return reject(error)
                 return resolve(data)
@@ -299,7 +310,7 @@ export class WsRequestHandler implements RequestHandler {
             "jsonrpc": "2.0"
         }
         this.setInController(endpointId, callback)
-        this.setInController(id, (data: Data, error?: any) => {
+        this.setInController(id, (data, error) => {
             this.deleteInController(id)
             this.deleteInController(endpointId)
             if (error) console.error(error)
@@ -310,6 +321,32 @@ export class WsRequestHandler implements RequestHandler {
                 this.deleteInController(endpointId)
                 console.error(error)
             }
+        })
+    }
+
+    private closeMediaThis(endpoint: Endpoint, pipeline: Pipeline): Promise<void> {
+        return new Promise((resolve, reject) => {
+            const id = shortid.generate()
+            const msg = {
+                "id": id,
+                "method": "release",
+                "params": {
+                    "object": endpoint.id,
+                    "sessionId": pipeline.sessionId
+                },
+                "jsonrpc": "2.0"
+            }
+            this.setInController(id, (data, error) => {
+                this.deleteInController(id)
+                if (error) return reject(error)
+                return resolve()
+            })
+            this.ws?.send(JSON.stringify(msg), (error) => {
+                if (error) {
+                    this.deleteInController(id)
+                    return reject(error)
+                }
+            })
         })
     }
 
@@ -380,6 +417,7 @@ export class WsRequestHandler implements RequestHandler {
                 .catch(() => { })
         })
         this.ws?.on("close", (code, reason) => {
+            console.log("WEBSOCKET CLOSE")
             this.ws = null
         })
     }

@@ -1,4 +1,3 @@
-import socketio from "socket.io"
 import { WsRequestHandler } from "./core/adpater/kurento/wsRequestHandler"
 import { AddCandidate } from "./core/use-case/addCandidate"
 import { GetMedia } from "./core/use-case/getMedia"
@@ -7,6 +6,8 @@ import { Endpoint } from "./core/use-case/interface/media"
 import { Callback, RequestHandler } from "./core/use-case/interface/requestHandler"
 import { SendMedia } from "./core/use-case/sendMedia"
 import { RoomsController } from "./core/use-case/roomsController"
+import { CloseMedia } from "./core/use-case/closeMedia"
+import socketio from "socket.io"
 
 const roomController: RoomsController = new RoomsController()
 const requestHandler: RequestHandler = new WsRequestHandler(roomController)
@@ -79,6 +80,16 @@ export class Socket {
                 const candidate: string = message.candidate
                 const addCandidate = new AddCandidate(requestHandler, roomId, endpoint, candidate)
                 addCandidate.exec()
+            })
+
+            socket.on("closeMedia", message => {
+                const roomId: number = message.roomId
+                const endpoint: Endpoint = message.endpoint
+                const closeMedia = new CloseMedia(requestHandler, roomId, endpoint)
+                closeMedia.exec()
+                    .then(() => socket.emit("closeMedia-ok"))
+                    .catch(error => console.error(error))
+                socket.broadcast.emit("disposeMedia")
             })
 
             socket.on('disconnect', () => {
