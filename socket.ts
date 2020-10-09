@@ -30,7 +30,7 @@ export class Socket {
                 const sdp: string = message.sdp
                 const callback: Callback = (data, error) => {
                     if (error) return console.error(error)
-                    socket.emit("addIceCandidate", { candidate: data.message.candidate })
+                    socket.emit("addIceCandidateSend", { candidate: data.message.candidate })
                 }
                 const sendMedia = new SendMedia(requestHandler, roomId, userId, sdp, callback)
                 sendMedia.exec()
@@ -53,13 +53,17 @@ export class Socket {
                 const sdp: string = message.sdp
                 const callback: Callback = (data, error) => {
                     if (error) return console.error(error)
-                    socket.emit("addIceCandidate", { candidate: data.message.candidate })
+                    socket.emit("addIceCandidateGet", { 
+                        endpointSender: endpointSender,
+                        candidate: data.message.candidate
+                    })
                 }
                 const getMedia = new GetMedia(requestHandler, roomId, endpointSender, sdp, callback)
                 getMedia.exec()
                     .then(media => {
                         socket.emit("getMedia-ok", {
                             endpoint: media.endpoint,
+                            endpointSender: endpointSender,
                             sdpAnswer: media.sdpAnswer
                         })
                     })
@@ -89,7 +93,7 @@ export class Socket {
                 closeMedia.exec()
                     .then(() => socket.emit("closeMedia-ok"))
                     .catch(error => console.error(error))
-                socket.broadcast.emit("disposeMedia")
+                socket.broadcast.emit("disposeMedia", { endpoint: endpoint })
             })
 
             socket.on('disconnect', () => {
