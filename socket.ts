@@ -1,4 +1,4 @@
-import { WsRequestHandler } from "./core/adpater/kurento/wsRequestHandler"
+import { WsRequestHandler } from "./core/adpater/janus/wsRequestHandler"
 import { AddCandidate } from "./core/use-case/addCandidate"
 import { GetMedia } from "./core/use-case/getMedia"
 import { GetMedias } from "./core/use-case/getMedias"
@@ -22,8 +22,6 @@ export class Socket {
 
     private exec() {
         this.io.on("connection", (socket) => {
-            console.log("connect")
-
             socket.on("sendMedia", message => {
                 const roomId: number = message.roomId
                 const userId: number = message.userId
@@ -39,12 +37,12 @@ export class Socket {
                             endpoint: media.endpoint,
                             sdpAnswer: media.sdpAnswer
                         })
-                        socket.broadcast.emit("newMedia", {
-                            endpoint: media.endpoint,
-                            sdpAnswer: media.sdpAnswer
+                        socket.on('disconnect', () => {
+                            this.closeMedia(roomId, media.endpoint, socket)
                         })
+                        socket.broadcast.emit("newMedia", { endpointSender: media.endpoint })
                     })
-                    .catch(error => console.error(error))
+                    .catch(error => socket.emit("sendMedia-error", { error: error }))
             })
 
             socket.on("getMedia", message => {
@@ -53,7 +51,7 @@ export class Socket {
                 const sdp: string = message.sdp
                 const callback: Callback = (data, error) => {
                     if (error) return console.error(error)
-                    socket.emit("addIceCandidateGet", { 
+                    socket.emit("addIceCandidateGet", {
                         endpointSender: endpointSender,
                         candidate: data.message.candidate
                     })
@@ -61,44 +59,44 @@ export class Socket {
                 const getMedia = new GetMedia(requestHandler, roomId, endpointSender, sdp, callback)
                 getMedia.exec()
                     .then(media => {
+                        console.log("OOOOOOOOOOOOOKKKKKKKKKKKKKKKKKKKK")
                         socket.emit("getMedia-ok", {
                             endpoint: media.endpoint,
-                            endpointSender: endpointSender,
                             sdpAnswer: media.sdpAnswer
                         })
                     })
-                    .catch(error => console.error(error))
+                    .catch(error => socket.emit("getMedia-error", { error: error }))
             })
 
             socket.on("getMedias", message => {
                 const roomId: number = message.roomId
                 const getMedias = new GetMedias(roomController, roomId)
                 getMedias.exec()
-                    .then(medias => socket.emit("recvMedias", { medias: medias }))
-                    .catch(error => console.error(error))
+                    .then(medias => socket.emit("getMedias-ok", { medias: medias }))
+                    .catch(error => socket.emit("getMedias-error", { error: error }))
             })
 
             socket.on("addIceCandidate", message => {
                 const roomId: number = message.roomId
                 const endpoint: Endpoint = message.endpoint
-                const candidate: string = message.candidate
-                const addCandidate = new AddCandidate(requestHandler, roomId, endpoint, candidate)
+                const candidates: string[] = message.candidates
+                const addCandidate = new AddCandidate(requestHandler, roomId, endpoint, candidates)
                 addCandidate.exec()
             })
 
             socket.on("closeMedia", message => {
-                const roomId: number = message.roomId
-                const endpoint: Endpoint = message.endpoint
-                const closeMedia = new CloseMedia(requestHandler, roomId, endpoint)
-                closeMedia.exec()
-                    .then(() => socket.emit("closeMedia-ok"))
-                    .catch(error => console.error(error))
-                socket.broadcast.emit("disposeMedia", { endpoint: endpoint })
-            })
-
-            socket.on('disconnect', () => {
-                console.log("disconnect")
+                const roomId = message.roomId
+                const endpoint = message.endpoint
+                this.closeMedia(roomId, endpoint, socket)
             })
         })
+    }
+
+    private closeMedia(roomId: number, endpoint: Endpoint, socket: socketio.Socket) {
+        const closeMedia = new CloseMedia(requestHandler, roomId, endpoint)
+        closeMedia.exec()
+            .then(() => socket.emit("closeMedia-ok"))
+            .catch(error => socket.emit("closeMedia-error", { error: error }))
+        socket.broadcast.emit("disposeMedia", { endpointSender: endpoint })
     }
 }

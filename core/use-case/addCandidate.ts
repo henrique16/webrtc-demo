@@ -5,16 +5,16 @@ export class AddCandidate {
     private requestHandler: RequestHandler
     private roomId: number
     private endpoint: Endpoint
-    private candidate: string
+    private candidates: string[]
 
-    public constructor(requestHandler: RequestHandler, roomId: number, endpoint: Endpoint, candidate: string) {
+    public constructor(requestHandler: RequestHandler, roomId: number, endpoint: Endpoint, candidates: string[]) {
         this.requestHandler = requestHandler
         this.roomId = roomId
         this.endpoint = endpoint
-        this.candidate = candidate
+        this.candidates = candidates
     }
 
     public exec() {
-        this.requestHandler.addCandidate(this.roomId, this.endpoint, this.candidate)
+        return this.requestHandler.addCandidate(this.roomId, this.endpoint, this.candidates)
     }
 }

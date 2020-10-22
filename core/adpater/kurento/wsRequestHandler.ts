@@ -27,7 +27,7 @@ export class WsRequestHandler implements RequestHandler {
             data = await this.processOfferEndpoint(endpointId, sdp, pipeline)
             const sdpAnswer = data.message.result.value
             const media: Media = {
-                endpoint: { id: endpointId },
+                endpoint: { id: endpointId, feed: "" },
                 sdpAnswer: sdpAnswer
             }
             await this.subscribe("OnIceCandidate", endpointId, pipeline)
@@ -49,7 +49,7 @@ export class WsRequestHandler implements RequestHandler {
             data = await this.processOfferEndpoint(endpointId, sdp, pipeline)
             const sdpAnswer = data.message.result.value
             const media: Media = {
-                endpoint: { id: endpointId },
+                endpoint: { id: endpointId, feed: "" },
                 sdpAnswer: sdpAnswer
             }
             await this.subscribe("OnIceCandidate", endpointId, pipeline)
@@ -61,29 +61,31 @@ export class WsRequestHandler implements RequestHandler {
         }
     }
 
-    public addCandidate(roomId: number, endpoint: Endpoint, candidate: string): void {
-        const iceCandidate = kurento.getComplexType("IceCandidate")(candidate)
-        this.roomsController.get(roomId)
-            .then(pipeline => {
-                const id = shortid.generate()
-                const msg = {
-                    "id": id,
-                    "method": "invoke",
-                    "params": {
-                        "object": endpoint.id,
-                        "operation": "addIceCandidate",
-                        "operationParams": {
-                            "candidate": iceCandidate
+    public addCandidate(roomId: number, endpoint: Endpoint, candidates: string[]): void {
+        candidates.forEach(candidate => {
+            const iceCandidate = kurento.getComplexType("IceCandidate")(candidate)
+            this.roomsController.get(roomId)
+                .then(pipeline => {
+                    const id = shortid.generate()
+                    const msg = {
+                        "id": id,
+                        "method": "invoke",
+                        "params": {
+                            "object": endpoint.id,
+                            "operation": "addIceCandidate",
+                            "operationParams": {
+                                "candidate": iceCandidate
+                            },
+                            "sessionId": pipeline.sessionId
                         },
-                        "sessionId": pipeline.sessionId
-                    },
-                    "jsonrpc": "2.0"
-                }
-                this.ws?.send(JSON.stringify(msg), (error) => {
-                    if (error) console.error(error)
+                        "jsonrpc": "2.0"
+                    }
+                    this.ws?.send(JSON.stringify(msg), (error) => {
+                        if (error) console.error(error)
+                    })
                 })
-            })
-            .catch(error => console.error(error))
+                .catch(error => console.error(error))
+        })
     }
 
     public async closeMedia(roomId: number, endpoint: Endpoint): Promise<void> {
