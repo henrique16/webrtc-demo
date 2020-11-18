@@ -5,11 +5,11 @@ export interface Data {
 }
 
 export interface Callback {
-    (data: Data, error?: any): void
+    (data: Data, error?: string): void
 }
 
 export interface RequestHandler {
-    sendMedia: (roomId: number, userId: number, sdp: string, callback: Callback) => Promise<Media>
+    sendMedia: (roomId: number, sdp: string, callback: Callback) => Promise<Media>
     getMedia: (roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback) => Promise<Media>
     addCandidate: (roomId: number, endpoint: Endpoint, candidates: string[]) => void
     closeMedia: (roomId: number, endpoint: Endpoint) => Promise<void>

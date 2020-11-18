@@ -1,4 +1,7 @@
 export default {
+    error: {
+        dir: "path"
+    },
     janus: {
         ws: {
             url: "ws://yourserver:8188/",

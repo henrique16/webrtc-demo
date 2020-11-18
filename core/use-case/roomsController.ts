@@ -11,7 +11,7 @@ export class RoomsController {
     }
 
     public set(pipeline: Pipeline): void {
-        this.controller.set(pipeline.room.roomId, pipeline)
+        this.controller.set(pipeline.roomId, pipeline)
     }
 
     public get(roomId: number): Promise<Pipeline> {

@@ -18,9 +18,9 @@ export class WsRequestHandler implements RequestHandler {
         this.ws = null
     }
 
-    public async sendMedia(roomId: number, userId: number, sdp: string, callback: Callback): Promise<Media> {
+    public async sendMedia(roomId: number, sdp: string, callback: Callback): Promise<Media> {
         try {
-            const pipeline = await this.createPipeline(roomId, userId)
+            const pipeline = await this.createPipeline(roomId)
             var data = await this.attach(pipeline)
             pipeline.id = data.message.data.id
             data = await this.room(roomId, pipeline)
@@ -129,7 +129,7 @@ export class WsRequestHandler implements RequestHandler {
                     this.getInController(transaction)
                         .then(callback => {
                             const data: Data = { message: message }
-                            callback(data, data)
+                            callback(data, JSON.stringify(data))
                         })
                         .catch(() => { })
                     break
@@ -151,7 +151,7 @@ export class WsRequestHandler implements RequestHandler {
         })
     }
 
-    private createPipeline(roomId: number, userId: number): Promise<Pipeline> {
+    private createPipeline(roomId: number): Promise<Pipeline> {
         return new Promise(async (resolve, reject) => {
             this.connect()
                 .then(() => {
@@ -161,7 +161,7 @@ export class WsRequestHandler implements RequestHandler {
                             this.create()
                                 .then(data => {
                                     const pipeline: Pipeline = {
-                                        room: { roomId: roomId, userId: userId },
+                                        roomId: roomId,
                                         id: data.message.data.id,
                                         sessionId: data.message.data.id,
                                         medias: []
@@ -353,7 +353,7 @@ export class WsRequestHandler implements RequestHandler {
             const msg = {
                 body: {
                     request: "start",
-                    room: pipeline.room.roomId
+                    room: pipeline.roomId
                 },
                 jsep: {
                     type: "answer",

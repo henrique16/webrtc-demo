@@ -18,9 +18,9 @@ export class WsRequestHandler implements RequestHandler {
         this.ws = null
     }
 
-    public async sendMedia(roomId: number, userId: number, sdp: string, callback: Callback): Promise<Media> {
+    public async sendMedia(roomId: number, sdp: string, callback: Callback): Promise<Media> {
         try {
-            const pipeline = await this.createMediaPipeline(roomId, userId)
+            const pipeline = await this.createMediaPipeline(roomId)
             var data = await this.createEndpoint(pipeline)
             const endpointId = data.message.result.value
             data = await this.connectEndpoint(endpointId, pipeline)
@@ -42,7 +42,7 @@ export class WsRequestHandler implements RequestHandler {
 
     public async getMedia(roomId: number, endpointSender: Endpoint, sdp: string, callback: Callback): Promise<Media> {
         try {
-            const pipeline = await this.roomsController.get(roomId)
+            const pipeline = await this.createMediaPipeline(roomId)
             var data = await this.createEndpoint(pipeline)
             const endpointId = data.message.result.value
             data = await this.connectEndpointSender(endpointId, endpointSender.id, pipeline)
@@ -61,31 +61,34 @@ export class WsRequestHandler implements RequestHandler {
         }
     }
 
-    public addCandidate(roomId: number, endpoint: Endpoint, candidates: string[]): void {
-        candidates.forEach(candidate => {
-            const iceCandidate = kurento.getComplexType("IceCandidate")(candidate)
-            this.roomsController.get(roomId)
-                .then(pipeline => {
-                    const id = shortid.generate()
-                    const msg = {
-                        "id": id,
-                        "method": "invoke",
-                        "params": {
-                            "object": endpoint.id,
-                            "operation": "addIceCandidate",
-                            "operationParams": {
-                                "candidate": iceCandidate
-                            },
-                            "sessionId": pipeline.sessionId
+    public async addCandidate(roomId: number, endpoint: Endpoint, candidates: string[]): Promise<void> {
+        try {
+            const pipeline = await this.createMediaPipeline(roomId)
+            candidates.forEach(candidate => {
+                const iceCandidate = kurento.getComplexType("IceCandidate")(candidate)
+                const id = shortid.generate()
+                const msg = {
+                    "id": id,
+                    "method": "invoke",
+                    "params": {
+                        "object": endpoint.id,
+                        "operation": "addIceCandidate",
+                        "operationParams": {
+                            "candidate": iceCandidate
                         },
-                        "jsonrpc": "2.0"
-                    }
-                    this.ws?.send(JSON.stringify(msg), (error) => {
-                        if (error) console.error(error)
-                    })
+                        "sessionId": pipeline.sessionId
+                    },
+                    "jsonrpc": "2.0"
+                }
+                this.ws?.send(JSON.stringify(msg), (error) => {
+                    if (error) console.error(error)
                 })
-                .catch(error => console.error(error))
-        })
+            })
+            return Promise.resolve()
+        }
+        catch (error) {
+            return Promise.reject(error)
+        }
     }
 
     public async closeMedia(roomId: number, endpoint: Endpoint): Promise<void> {
@@ -100,7 +103,7 @@ export class WsRequestHandler implements RequestHandler {
         }
     }
 
-    private async createMediaPipeline(roomId: number, userId: number): Promise<Pipeline> {
+    private async createMediaPipeline(roomId: number): Promise<Pipeline> {
         return new Promise((resolve, reject) => {
             this.connect()
                 .then(() => {
@@ -110,7 +113,7 @@ export class WsRequestHandler implements RequestHandler {
                             this.createMediaPipelineKurento()
                                 .then(data => {
                                     const pipeline: Pipeline = {
-                                        room: { roomId: roomId, userId: userId },
+                                        roomId: roomId,
                                         id: data.message.result.value,
                                         sessionId: data.message.result.sessionId,
                                         medias: []
@@ -398,11 +401,11 @@ export class WsRequestHandler implements RequestHandler {
         this.ws?.on("message", (data: Ws.Data) => {
             const message: any = JSON.parse(data.toString())
             const id: string = message.id
-            if (message.hasOwnProperty("error")) {
+            if (this.checkError(JSON.stringify(message))) {
                 this.getInController(id)
                     .then(callback => {
                         const data: Data = { message: message }
-                        callback(data, data)
+                        callback(data, JSON.stringify(data))
                     })
                     .catch(() => { })
                 return
@@ -424,7 +427,14 @@ export class WsRequestHandler implements RequestHandler {
         })
     }
 
-    private event(message: any) {
+    private checkError(message: string): boolean {
+        var b = false
+        const index = message.indexOf("error")
+        if (index !== -1) b = true
+        return b
+    }
+
+    private event(message: any): void {
         switch (message.params.value.type) {
             case "OnIceCandidate":
                 this.getInController(message.params.value.object)

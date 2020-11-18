@@ -1,4 +1,4 @@
-import { WsRequestHandler } from "./core/adpater/janus/wsRequestHandler"
+import { WsRequestHandler } from "./core/adpater/kurento/wsRequestHandler"
 import { AddCandidate } from "./core/use-case/addCandidate"
 import { GetMedia } from "./core/use-case/getMedia"
 import { GetMedias } from "./core/use-case/getMedias"
@@ -30,7 +30,7 @@ export class Socket {
                     if (error) return console.error(error)
                     socket.emit("addIceCandidateSend", { candidate: data.message.candidate })
                 }
-                const sendMedia = new SendMedia(requestHandler, roomId, userId, sdp, callback)
+                const sendMedia = new SendMedia(requestHandler, roomId, sdp, callback)
                 sendMedia.exec()
                     .then(media => {
                         socket.emit("sendMedia-ok", {
