@@ -118,7 +118,7 @@ Participant.prototype.getMedia = function (endpointSender) {
                     recvCandidates = []
                     this.processAnswer(sdpAnswer, (error) => {
                         if (error) throw error
-                        document.body.appendChild(video)
+                        video.onplay = (event) => document.body.appendChild(event.target)
                         return resolve(endpoint)
                     })
                 })
