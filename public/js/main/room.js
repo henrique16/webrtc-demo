@@ -246,8 +246,8 @@ const participant_ = (function () {
     }
 
     async function send(event) {
+        const element = event.target
         try {
-            const element = event.target
             element.onclick = null
             const endpoint = await participant.sendMedia()
             element.onclick = (event) => dispose(event, endpoint)
@@ -272,8 +272,8 @@ const participant_ = (function () {
     }
 
     async function dispose(event, endpoint) {
+        const element = event.target
         try {
-            const element = event.target
             const video = document.getElementById(participant.id)
             element.onclick = null
             participant.peer.dispose()
