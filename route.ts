@@ -1,11 +1,12 @@
 import { Express } from "express"
-import socketio from "socket.io"
+import _path from "path"
+import _socketio from "socket.io"
 
 export class Route {
     private route: Express
-    private io: socketio.Server
+    private io: _socketio.Server
 
-    public constructor(route: Express, io: socketio.Server) {
+    public constructor(route: Express, io: _socketio.Server) {
         this.route = route
         this.io = io
         this.exec()
@@ -14,7 +15,7 @@ export class Route {
     private exec() {
         
         this.route.get("/", (req, res, next) => {
-            res.status(200).sendFile("index.html")
+            res.status(200).sendFile(_path.join(__dirname, "/public", "/view", "index.html"))
         })
     }
 }

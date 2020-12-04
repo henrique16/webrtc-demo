@@ -1,4 +1,9 @@
 export default {
+    publicFiles: {
+        dir: {
+            js: ""
+        }
+    },
     error: {
         dir: "path"
     },

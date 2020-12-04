@@ -1,4 +1,4 @@
 node_modules
-dist
+build
 core/config/index.ts
 core/test.ts

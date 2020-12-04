@@ -23,7 +23,7 @@ export class WsRequestHandler implements RequestHandler {
             const pipeline = await this.createMediaPipeline(roomId)
             var data = await this.createEndpoint(pipeline)
             const endpointId = data.message.result.value
-            data = await this.connectEndpoint(endpointId, pipeline)
+            await this.connectEndpoint(endpointId, pipeline)
             data = await this.processOfferEndpoint(endpointId, sdp, pipeline)
             const sdpAnswer = data.message.result.value
             const media: Media = {
@@ -45,7 +45,7 @@ export class WsRequestHandler implements RequestHandler {
             const pipeline = await this.createMediaPipeline(roomId)
             var data = await this.createEndpoint(pipeline)
             const endpointId = data.message.result.value
-            data = await this.connectEndpointSender(endpointId, endpointSender.id, pipeline)
+            await this.connectEndpointSender(endpointId, endpointSender.id, pipeline)
             data = await this.processOfferEndpoint(endpointId, sdp, pipeline)
             const sdpAnswer = data.message.result.value
             const media: Media = {

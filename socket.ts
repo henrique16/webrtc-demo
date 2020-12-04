@@ -59,7 +59,6 @@ export class Socket {
                 const getMedia = new GetMedia(requestHandler, roomId, endpointSender, sdp, callback)
                 getMedia.exec()
                     .then(media => {
-                        console.log("OOOOOOOOOOOOOKKKKKKKKKKKKKKKKKKKK")
                         socket.emit("getMedia-ok", {
                             endpoint: media.endpoint,
                             sdpAnswer: media.sdpAnswer
