@@ -1,5 +1,5 @@
 const IoRequestHandler = function () {
-    this.socket = io("http://192.168.15.24:9090")
+    this.socket = io("http://localhost:9090")
 }
 
 IoRequestHandler.prototype.sendMedia = function (roomId, userId, sdp) {
